@@ -1,85 +1,99 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Tests.User.Api.Exceptions;
+using Tests.User.Api.Models;
+using Tests.User.Api.Services;
 
 namespace Tests.User.Api.Controllers
 {
+    [Route("api/users")]
+    [ApiController] 
     public class UserController : Controller
     {
-        /// <summary>
-        ///     Gets a user
-        /// </summary>
-        /// <param name="id">ID of the user</param>
-        /// <returns></returns>
-        [HttpGet]
-        [Route("api/users")]
-        public IActionResult Get(int id)
+        private readonly UserService _userService;
+
+        public UserController(UserService userService)
         {
-            DatabaseContext database = new DatabaseContext();
-            Models.User user = database.Users.Where(user => user.Id == id).First();
-            return Ok(user);
+            _userService = userService;
         }
 
         /// <summary>
-        ///     Create a new user
+        /// Gets a user by id
         /// </summary>
-        /// <param name="firstName">First name of the user</param>
-        /// <param name="lastName">Last name of the user</param>
-        /// <param name="age">Age of the user (must be a number)</param>
+        /// <param name="id">ID of the user</param>
+        /// <returns>User data</returns>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetAsync(int id)
+        {
+            try
+            {
+                var user = await _userService.GetUserAsync(id);
+                return Ok(user);
+            }
+            catch (UserNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Create a new user
+        /// </summary>
+        /// <param name="user">User data</param>
         /// <returns></returns>
         [HttpPost]
-        [Route("api/users")]
-        public IActionResult Create(string firstName, string lastName, string age)
+        public async Task<IActionResult> CreateAsync([FromBody] CreateUserReq user)
         {
-            DatabaseContext Database = new DatabaseContext();
-            Database.Users.Add(new Models.User
+            if (!ModelState.IsValid)
             {
-                Age = age,
-                FirstName = firstName,
-                LastName = lastName
-            });
-            Database.SaveChanges();
+                return BadRequest(ModelState);
+            }
+
+            await _userService.CreateUserAsync(user);
             return Ok();
         }
 
         /// <summary>
-        ///     Updates a user
+        /// Updates a user by id
         /// </summary>
-        /// <param name="id">ID of the user</param>
-        /// <param name="firstName">First name of the user</param>
-        /// <param name="lastName">Last name of the user</param>
-        /// <param name="age">Age of the user (must be a number)</param>
+        /// <param name="user">User data</param>
         /// <returns></returns>
         [HttpPut]
-        [Route("api/users")]
-        public IActionResult Update(int id, string firstName, string lastName, string age)
+        public async Task<IActionResult> UpdateAsync([FromBody] UpdateUserReq user)
         {
-            DatabaseContext Database = new DatabaseContext();
-            Database.Users.Update(new Models.User
+            if (!ModelState.IsValid)
             {
-                Age = age,
-                FirstName = firstName,
-                LastName = lastName,
-                Id = id
-            });
-            Database.SaveChanges();
-            return Ok();
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                await _userService.UpdateUserAsync(user);
+                return Ok();
+            }
+            catch (UserNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         /// <summary>
-        ///     Delets a user
+        /// Delets a user by id
         /// </summary>
         /// <param name="id">ID of the user</param>
         /// <returns></returns>
         [HttpDelete]
-        [Route("api/users")]
-        public IActionResult Delete(int id)
+        [Route("{id}/delete")]
+        public async Task<IActionResult> DeleteAsync(int id)
         {
-            DatabaseContext database = new DatabaseContext();
-            database.Users.Remove(new Models.User
+            try
             {
-                Id = id
-            });
-            database.SaveChanges();
-            return Ok();
+                await _userService.DeleteUserAsync(id);
+                return Ok();
+            }
+            catch (UserNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }
